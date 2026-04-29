@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export default function proxy(request: NextRequest) {
   const authCookie = request.cookies.get('comif_auth')?.value;
   const { pathname } = request.nextUrl;
 
