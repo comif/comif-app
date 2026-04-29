@@ -1,0 +1,1 @@
+INSERT INTO `personnes` (`id_personne`, `nom_personne`, `prenom_personne`, `id_promotion`, `date_fin_cotisation`, `solde`, `solde_ecocup`, `est_serveur`, `mdp`, `email`, `visible`, `acces_tibbar_titpause`, `acces_admin`, `total_consommation`, `statistique1`, `statistique2`, `statistique3`, `statistique4`) VALUES

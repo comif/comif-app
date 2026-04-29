@@ -1,0 +1,1 @@
+INSERT INTO `prix` (`id_produit`, `prix_produit`, `date_prix`) VALUES

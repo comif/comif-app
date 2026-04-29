@@ -1,0 +1,1 @@
+INSERT INTO `produits` (`id_produit`, `nom_produit`, `id_categorie`, `quantite_produit`, `visible`, `volume`, `masse`) VALUES

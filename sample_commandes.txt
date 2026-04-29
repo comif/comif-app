@@ -1,0 +1,1 @@
+INSERT INTO `commandes` (`id_commande`, `id_produit`, `quantite_commande`, `id_personne_consommateur`, `id_personne_serveur`, `date_commande`) VALUES
