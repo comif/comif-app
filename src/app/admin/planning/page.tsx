@@ -135,6 +135,7 @@ export default function PlanningPage() {
       case 'Soirée': return 'bg-rose-100 text-rose-800 border-rose-200';
       case 'Réunion': return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'Lancement': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      case 'Prestation': return 'bg-purple-100 text-purple-800 border-purple-200';
       default: return 'bg-stone-200 text-stone-800 border-stone-300';
     }
   };
@@ -255,7 +256,7 @@ export default function PlanningPage() {
               <div>
                 <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Type</label>
                 <div className="flex gap-2">
-                  {['Soirée', 'Réunion', 'Lancement', 'Autre'].map(type => (
+                  {['Soirée', 'Réunion', 'Lancement', 'Prestation', 'Autre'].map(type => (
                     <button
                       key={type}
                       type="button"
