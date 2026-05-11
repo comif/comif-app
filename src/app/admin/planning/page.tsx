@@ -32,6 +32,7 @@ export default function PlanningPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   
   // Form state
   const [newEventTitle, setNewEventTitle] = useState('');
@@ -69,39 +70,62 @@ export default function PlanningPage() {
     setNewEventTitle('');
     setNewEventDesc('');
     setNewEventType('Soirée');
+    setEditingEvent(null);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (e: React.MouseEvent, event: Event) => {
+    e.stopPropagation();
+    setSelectedDate(parseISO(event.event_date));
+    setNewEventTitle(event.title);
+    setNewEventDesc(event.description || '');
+    setNewEventType(event.type);
+    setEditingEvent(event);
     setIsModalOpen(true);
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedDate(null);
+    setEditingEvent(null);
   };
 
-  const addEvent = async (e: React.FormEvent) => {
+  const saveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEventTitle.trim() || !selectedDate) return;
     
     setIsLoading(true);
     const eventDateStr = format(selectedDate, 'yyyy-MM-dd');
     
-    const newEvent = {
+    const eventData = {
       title: newEventTitle.trim(),
       description: newEventDesc.trim(),
       event_date: eventDateStr,
       type: newEventType
     };
 
-    const tempId = Date.now().toString();
-    setEvents([...events, { ...newEvent, id: tempId }]);
-    closeModal();
+    if (editingEvent) {
+      // Optimistic update
+      setEvents(prev => prev.map(ev => ev.id === editingEvent.id ? { ...ev, ...eventData } : ev));
+      closeModal();
+      
+      const { error } = await supabase.from('events').update(eventData).eq('id', editingEvent.id);
+      if (error) {
+        console.error("Erreur lors de la mise à jour:", error);
+        fetchEvents(); // Revert on error
+      }
+    } else {
+      const tempId = Date.now().toString();
+      setEvents([...events, { ...eventData, id: tempId }]);
+      closeModal();
 
-    const { data, error } = await supabase.from('events').insert([newEvent]).select();
-    if (data && data[0]) {
-      setEvents(prev => prev.map(e => e.id === tempId ? data[0] : e));
-    } else if (error) {
-      console.error("Erreur lors de l'ajout:", error);
-      // Rollback temp update on error
-      setEvents(prev => prev.filter(e => e.id !== tempId));
+      const { data, error } = await supabase.from('events').insert([eventData]).select();
+      if (data && data[0]) {
+        setEvents(prev => prev.map(ev => ev.id === tempId ? data[0] : ev));
+      } else if (error) {
+        console.error("Erreur lors de l'ajout:", error);
+        setEvents(prev => prev.filter(ev => ev.id !== tempId));
+      }
     }
     setIsLoading(false);
   };
@@ -203,7 +227,8 @@ export default function PlanningPage() {
                   {dayEvents.map(event => (
                     <div 
                       key={event.id} 
-                      className={`text-xs px-2 py-1.5 rounded-md border font-semibold flex items-start justify-between group/event ${getTypeColor(event.type)}`}
+                      onClick={(e) => openEditModal(e, event)}
+                      className={`text-xs px-2 py-1.5 rounded-md border font-semibold flex items-start justify-between group/event ${getTypeColor(event.type)} hover:brightness-95 transition-all`}
                     >
                       <span className="truncate pr-1">{event.title}</span>
                       <button 
@@ -228,14 +253,14 @@ export default function PlanningPage() {
             <div className="p-5 border-b border-[#E8E4D9] flex justify-between items-center bg-[#FCFAF5]">
               <h3 className="font-bold text-stone-800 flex items-center gap-2">
                 <CalendarIcon className="w-5 h-5 text-[#5A0A18]" />
-                Ajouter un événement
+                {editingEvent ? 'Modifier un événement' : 'Ajouter un événement'}
               </h3>
               <button onClick={closeModal} className="text-stone-400 hover:text-stone-600 transition-colors p-1 rounded-lg hover:bg-stone-200">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
-            <form onSubmit={addEvent} className="p-6 flex flex-col gap-5">
+            <form onSubmit={saveEvent} className="p-6 flex flex-col gap-5">
               <div className="bg-[#F4F1EB] text-stone-800 px-4 py-3 rounded-xl text-sm font-semibold flex items-center gap-2 border border-[#E8E4D9]">
                 <Clock className="w-4 h-4 text-stone-500" />
                 {format(selectedDate, 'EEEE d MMMM yyyy', { locale: fr })}
@@ -299,7 +324,7 @@ export default function PlanningPage() {
                   disabled={isLoading || !newEventTitle.trim()}
                   className="flex-1 px-5 py-3 rounded-xl text-sm font-bold bg-[#5A0A18] text-white hover:bg-[#7A1224] transition-colors disabled:opacity-50 shadow-md shadow-rose-900/20"
                 >
-                  {isLoading ? 'Ajout...' : 'Créer l\'événement'}
+                  {isLoading ? 'Enregistrement...' : (editingEvent ? 'Mettre à jour' : 'Créer l\'événement')}
                 </button>
               </div>
             </form>
