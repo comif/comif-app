@@ -12,17 +12,18 @@ import {
   FileCheck, 
   MenuSquare,
   ArrowLeft,
-  ClipboardList
+  ClipboardList,
+  CalendarDays
 } from 'lucide-react';
 
 const ADMIN_LINKS = [
   { href: '/admin', label: 'Tableau de bord', icon: LayoutDashboard, category: 'Général' },
+  { href: '/admin/planning', label: 'Planning', icon: CalendarDays, category: 'Général' },
   { href: '/admin/history', label: 'Suivi des comptes', icon: ClipboardList, category: 'Général' },
   { href: '/admin/categories', label: 'Ajouter/Supprimer une catégorie', icon: Layers, category: 'Administration du site' },
   { href: '/admin/products', label: 'Ajouter/Supprimer un produit', icon: Package, category: 'Administration du site' },
   { href: '/admin/servers', label: 'Ajouter/Supprimer un serveur', icon: UserSquare2, category: 'Administration du site' },
   { href: '/admin/users', label: 'Ajouter/Supprimer un cotisant', icon: Users, category: 'Administration du site' },
-  { href: '/admin/cotisations', label: 'Mettre à jour les cotisations', icon: FileCheck, category: 'Administration du site' },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
