@@ -143,12 +143,12 @@ function POSContent() {
     if (!selectedUser || cart.length === 0 || isProcessing) return;
     setIsProcessing(true);
 
-    const newBalance = selectedUser.balance - cartTotal;
+    const { data: updatedBalance, error: updateError } = await supabase.rpc('increment_balance', {
+      p_user_id: selectedUser.id,
+      p_amount: -cartTotal
+    });
 
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({ balance: newBalance })
-      .eq('id', selectedUser.id);
+    const newBalance = typeof updatedBalance === 'number' ? updatedBalance : (selectedUser.balance - cartTotal);
 
     if (updateError) {
       alert("Erreur réseau");

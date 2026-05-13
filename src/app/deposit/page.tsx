@@ -90,13 +90,14 @@ export default function DepositPage() {
       }
     }
     
-    const newBalance = selectedUser.balance + depositAmount;
-
-    // 1. Mettre à jour le solde
-    const { error: userError } = await supabase
-      .from('users')
-      .update({ balance: newBalance })
-      .eq('id', selectedUser.id);
+    // 1. Mettre à jour le solde de manière atomique (RPC)
+    const { data: updatedBalance, error: userError } = await supabase.rpc('increment_balance', {
+      p_user_id: selectedUser.id,
+      p_amount: depositAmount
+    });
+    
+    // Le solde renvoyé par la base de données est le solde 100% à jour
+    const newBalance = typeof updatedBalance === 'number' ? updatedBalance : (selectedUser.balance + depositAmount);
       
     if (userError) {
       console.error(userError);
