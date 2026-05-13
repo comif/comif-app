@@ -38,10 +38,12 @@ export default function AdminDashboard() {
   }, []);
 
   const fetchKPIs = async () => {
-    // Membres actifs
+    // Membres actifs (fin de cotisation future ou aujourd'hui)
+    const todayStr = new Date().toISOString().split('T')[0];
     const { count } = await supabase
       .from('users')
-      .select('*', { count: 'exact', head: true });
+      .select('*', { count: 'exact', head: true })
+      .gte('membership_end', todayStr);
     
     if (count !== null) setActiveMembers(count);
 
@@ -52,7 +54,7 @@ export default function AdminDashboard() {
     const { data: sales } = await supabase
       .from('transactions')
       .select('amount')
-      .eq('transaction_type', 'achat')
+      .eq('type', 'achat')
       .gte('created_at', today.toISOString());
 
     if (sales) {

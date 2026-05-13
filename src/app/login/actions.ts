@@ -12,12 +12,12 @@ export async function loginAction(formData: FormData) {
 
   if (password === ADMIN_PASSWORD) {
     const cookieStore = await cookies();
-    cookieStore.set('comif_auth', 'admin', { secure: true, httpOnly: true, path: '/', maxAge: 60 * 60 * 24 * 7 }); // 1 semaine
+    cookieStore.set('comif_auth', 'admin', { secure: true, httpOnly: true, path: '/', maxAge: 60 * 60 * 2 }); // 2 heures
     redirect('/admin');
   } 
   else if (password === BAR_PASSWORD) {
     const cookieStore = await cookies();
-    cookieStore.set('comif_auth', 'bar', { secure: true, httpOnly: true, path: '/', maxAge: 60 * 60 * 24 * 7 }); // 1 semaine
+    cookieStore.set('comif_auth', 'bar', { secure: true, httpOnly: true, path: '/', maxAge: 60 * 60 * 2 }); // 2 heures
     redirect('/');
   }
   

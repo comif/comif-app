@@ -64,7 +64,7 @@ export default function HistoryPage() {
       .from('transactions')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(250);
 
     if (txData) {
       // Fetch only the users that are in the transactions
