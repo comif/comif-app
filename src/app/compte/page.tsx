@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { createClient } from '@/utils/supabase/server';
-import { LogOut } from 'lucide-react';
+import { LogOut, ShoppingBag } from 'lucide-react';
 import { signOutAction } from './actions';
+import { getAuthenticatedCotisant } from './session';
 
 interface TransactionRow {
   id: number;
@@ -24,23 +26,13 @@ function formatDate(iso: string): string {
 }
 
 export default async function ComptePage() {
-  const supabase = await createClient();
+  const cotisant = await getAuthenticatedCotisant();
 
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user?.email) {
+  if (!cotisant) {
     redirect('/compte/connexion');
   }
 
-  const { data: cotisant } = await supabase
-    .from('users')
-    .select('id, first_name, last_name, balance, promo')
-    .ilike('email', user.email)
-    .maybeSingle();
-
-  if (!cotisant) {
-    redirect('/compte/connexion?error=inconnu');
-  }
+  const supabase = await createClient();
 
   const { data: txData } = await supabase
     .from('transactions')
@@ -79,6 +71,14 @@ export default async function ComptePage() {
             {cotisant.balance.toFixed(2)} €
           </p>
         </div>
+
+        <Link
+          href="/compte/commander"
+          className="w-full py-4 rounded-xl font-black text-white bg-[#5A0A18] hover:bg-[#7A1224] transition-colors shadow-lg shadow-[#5A0A18]/20 flex justify-center items-center gap-2"
+        >
+          <ShoppingBag className="w-5 h-5" />
+          Passer une commande
+        </Link>
 
         <div>
           <h2 className="text-sm font-black text-stone-800 uppercase tracking-wider mb-3 px-1">Historique récent</h2>

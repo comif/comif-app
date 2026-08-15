@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
+import { getAuthenticatedCotisant } from './session';
 
 export async function requestMagicLink(formData: FormData) {
   const email = (formData.get('email') as string || '').trim().toLowerCase();
@@ -45,4 +46,53 @@ export async function signOutAction() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect('/compte/connexion');
+}
+
+export async function createPendingOrder(itemsInput: { product_id: number; qty: number }[]) {
+  const cotisant = await getAuthenticatedCotisant();
+  if (!cotisant) {
+    return { error: 'Session expirée, reconnectez-vous.' };
+  }
+
+  const cleanItems = itemsInput.filter(i => i.qty > 0);
+  if (cleanItems.length === 0) {
+    return { error: 'Le panier est vide.' };
+  }
+
+  const supabase = await createClient();
+  const productIds = cleanItems.map(i => i.product_id);
+
+  // On ne fait jamais confiance à un nom/prix envoyé par le téléphone de
+  // l'étudiant: on relit toujours le vrai prix en base au moment de créer
+  // la commande.
+  const { data: products } = await supabase
+    .from('products')
+    .select('id, name, price')
+    .in('id', productIds);
+
+  const productMap = new Map((products || []).map(p => [p.id, p]));
+
+  const items = cleanItems
+    .filter(i => productMap.has(i.product_id))
+    .map(i => {
+      const p = productMap.get(i.product_id)!;
+      return { product_id: p.id, name: p.name, price: p.price, qty: i.qty };
+    });
+
+  if (items.length === 0) {
+    return { error: 'Produits introuvables.' };
+  }
+
+  const { data: order, error } = await supabase
+    .from('pending_orders')
+    .insert({ client_id: cotisant.id, items })
+    .select('id')
+    .single();
+
+  if (error || !order) {
+    console.error('Erreur création commande:', error);
+    return { error: 'Erreur lors de la création de la commande.' };
+  }
+
+  return { id: order.id as string };
 }
