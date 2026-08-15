@@ -23,6 +23,11 @@ interface Transaction {
   type: string;
 }
 
+// Nombre de lignes chargées par défaut (vue rapide, sans recherche)
+const DEFAULT_HISTORY_LIMIT = 250;
+// Nombre de lignes max renvoyées par une recherche approfondie (couvre tout l'historique d'une personne)
+const SEARCH_HISTORY_LIMIT = 2000;
+
 export default function HistoryPage() {
   const supabase = createClient();
   const [activeTab, setActiveTab] = useState<TabType>('negative');
@@ -33,9 +38,106 @@ export default function HistoryPage() {
   const [deposits, setDeposits] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  // Résultat d'une recherche approfondie (sur tout l'historique, pas juste les 250 dernières lignes)
+  const [deepSearchResults, setDeepSearchResults] = useState<{ transactions: Transaction[]; deposits: Transaction[] } | null>(null);
+  const [isDeepSearching, setIsDeepSearching] = useState(false);
+
+  // Construit les infos affichables (nom client, nom serveur, date formatée...) à partir de lignes brutes de transactions
+  const formatTransactions = async (txData: any[]): Promise<Transaction[]> => {
+    if (txData.length === 0) return [];
+
+    const clientIds = [...new Set(txData.map(t => t.client_id).filter(Boolean))];
+    const serverIds = [...new Set(txData.map(t => t.server_id).filter(Boolean))];
+
+    let userMap = new Map();
+    let serverMap = new Map();
+
+    if (clientIds.length > 0) {
+      const { data: txUsers } = await supabase
+        .from('users')
+        .select('id, first_name, last_name')
+        .in('id', clientIds);
+
+      if (txUsers) {
+        userMap = new Map(txUsers.map(u => [u.id, `${u.first_name} ${u.last_name}`]));
+      }
+    }
+
+    if (serverIds.length > 0) {
+      const { data: txServers } = await supabase
+        .from('servers')
+        .select('id, first_name, last_name')
+        .in('id', serverIds);
+
+      if (txServers) {
+        serverMap = new Map(txServers.map(s => [s.id, `${s.first_name}`]));
+      }
+    }
+
+    return txData.map(t => {
+      const userName = userMap.get(t.client_id) || 'Inconnu';
+      const serverName = serverMap.get(t.server_id) || '-';
+      const date = new Date(t.created_at).toLocaleString('fr-FR', {
+        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+      });
+
+      let detailsText = '';
+      if (typeof t.details === 'string') {
+        detailsText = t.details;
+      } else if (Array.isArray(t.details)) {
+        detailsText = t.details.map((d: any) => `${d.qty}x ${d.name}`).join(', ');
+      }
+
+      return {
+        id: t.id,
+        name: userName,
+        amount: t.amount,
+        date,
+        details: detailsText || '-',
+        server: serverName,
+        type: t.type
+      };
+    });
+  };
+
+  // Cherche dans TOUT l'historique (pas seulement les 250 dernières lignes) une personne, un produit ou un détail
+  const searchFullHistory = async (q: string) => {
+    // On retire les caractères qui casseraient la syntaxe de filtre Supabase
+    const safeQ = q.replace(/[,()]/g, '').trim();
+    if (!safeQ) return { transactions: [], deposits: [] };
+
+    const tokens = safeQ.split(/\s+/).filter(Boolean);
+    const userOrFilter = tokens
+      .map(t => `first_name.ilike.%${t}%,last_name.ilike.%${t}%`)
+      .join(',');
+
+    const { data: matchedUsers } = await supabase
+      .from('users')
+      .select('id')
+      .or(userOrFilter);
+
+    const userIds = (matchedUsers || []).map(u => u.id);
+
+    let txQuery = supabase
+      .from('transactions')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(SEARCH_HISTORY_LIMIT);
+
+    if (userIds.length > 0) {
+      txQuery = txQuery.or(`client_id.in.(${userIds.join(',')}),details.ilike.%${safeQ}%`);
+    } else {
+      txQuery = txQuery.ilike('details', `%${safeQ}%`);
+    }
+
+    const { data: txData } = await txQuery;
+    const formatted = await formatTransactions(txData || []);
+
+    return {
+      transactions: formatted.filter(t => t.type === 'achat'),
+      deposits: formatted.filter(t => t.type === 'renflouement'),
+    };
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -59,68 +161,15 @@ export default function HistoryPage() {
       );
     }
 
-    // 2. Fetch transactions (Sans foreign key relation pour éviter les bugs de cache Supabase)
+    // 2. Fetch the most recent transactions for the default (no search) view
     const { data: txData } = await supabase
       .from('transactions')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(250);
+      .limit(DEFAULT_HISTORY_LIMIT);
 
     if (txData) {
-      // Fetch only the users that are in the transactions
-      const clientIds = [...new Set(txData.map(t => t.client_id).filter(Boolean))];
-      const serverIds = [...new Set(txData.map(t => t.server_id).filter(Boolean))];
-      
-      let userMap = new Map();
-      let serverMap = new Map();
-
-      if (clientIds.length > 0) {
-        const { data: txUsers } = await supabase
-          .from('users')
-          .select('id, first_name, last_name')
-          .in('id', clientIds);
-          
-        if (txUsers) {
-          userMap = new Map(txUsers.map(u => [u.id, `${u.first_name} ${u.last_name}`]));
-        }
-      }
-
-      if (serverIds.length > 0) {
-        const { data: txServers } = await supabase
-          .from('servers')
-          .select('id, first_name, last_name')
-          .in('id', serverIds);
-
-        if (txServers) {
-          serverMap = new Map(txServers.map(s => [s.id, `${s.first_name}`]));
-        }
-      }
-      
-      const formattedTx = txData.map(t => {
-        const userName = userMap.get(t.client_id) || 'Inconnu';
-        const serverName = serverMap.get(t.server_id) || '-';
-        const date = new Date(t.created_at).toLocaleString('fr-FR', {
-          day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit'
-        });
-        
-        let detailsText = '';
-        if (typeof t.details === 'string') {
-          detailsText = t.details;
-        } else if (Array.isArray(t.details)) {
-          detailsText = t.details.map((d: any) => `${d.qty}x ${d.name}`).join(', ');
-        }
-
-        return {
-          id: t.id,
-          name: userName,
-          amount: t.amount,
-          date,
-          details: detailsText || '-',
-          server: serverName,
-          type: t.type
-        };
-      });
-
+      const formattedTx = await formatTransactions(txData);
       setTransactions(formattedTx.filter(t => t.type === 'achat'));
       setDeposits(formattedTx.filter(t => t.type === 'renflouement'));
     }
@@ -128,22 +177,52 @@ export default function HistoryPage() {
     setIsLoading(false);
   };
 
+  useEffect(() => {
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Recherche approfondie côté base de données quand l'utilisateur tape dans la barre de recherche
+  useEffect(() => {
+    const q = searchQuery.trim();
+
+    if (!q || activeTab === 'negative') {
+      setDeepSearchResults(null);
+      setIsDeepSearching(false);
+      return;
+    }
+
+    setIsDeepSearching(true);
+    const timeout = setTimeout(async () => {
+      const results = await searchFullHistory(q);
+      setDeepSearchResults(results);
+      setIsDeepSearching(false);
+    }, 300);
+
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, activeTab]);
+
+  // Source affichée: résultat de la recherche approfondie si elle existe, sinon la vue par défaut (250 dernières lignes)
+  const activeTransactions = deepSearchResults ? deepSearchResults.transactions : transactions;
+  const activeDeposits = deepSearchResults ? deepSearchResults.deposits : deposits;
+
   // Filtering
-  const filteredNegative = useMemo(() => negativeUsers.filter(item => 
+  const filteredNegative = useMemo(() => negativeUsers.filter(item =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase())
   ), [negativeUsers, searchQuery]);
 
-  const filteredTransactions = useMemo(() => transactions.filter(item => 
-    item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  const filteredTransactions = useMemo(() => activeTransactions.filter(item =>
+    item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.date.includes(searchQuery) ||
     item.details.toLowerCase().includes(searchQuery.toLowerCase())
-  ), [transactions, searchQuery]);
+  ), [activeTransactions, searchQuery]);
 
-  const filteredDeposits = useMemo(() => deposits.filter(item => 
-    item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  const filteredDeposits = useMemo(() => activeDeposits.filter(item =>
+    item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.date.includes(searchQuery) ||
     item.details.toLowerCase().includes(searchQuery.toLowerCase())
-  ), [deposits, searchQuery]);
+  ), [activeDeposits, searchQuery]);
 
   return (
     <div className="pb-10">
@@ -183,16 +262,22 @@ export default function HistoryPage() {
         </div>
 
         {/* Search */}
-        <div className="mb-6 relative max-w-md">
+        <div className="mb-2 relative max-w-md">
           <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-          <input 
-            type="text" 
-            placeholder="Rechercher par nom, date ou produit..." 
+          <input
+            type="text"
+            placeholder="Rechercher par nom, date ou produit..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#E8E4D9] rounded-xl text-stone-800 font-medium focus:outline-none focus:border-[#5A0A18] shadow-sm transition-colors"
           />
         </div>
+        {activeTab !== 'negative' && searchQuery.trim() && (
+          <p className="mb-6 text-xs font-medium text-stone-500">
+            {isDeepSearching ? 'Recherche dans tout l\'historique…' : 'Résultats sur tout l\'historique (pas seulement les dernières lignes).'}
+          </p>
+        )}
+        {(activeTab === 'negative' || !searchQuery.trim()) && <div className="mb-6" />}
 
         {/* Content */}
         <div className="bg-white rounded-2xl border border-[#E8E4D9] shadow-sm overflow-hidden flex flex-col max-h-[600px]">
