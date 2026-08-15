@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Search, Coins, CheckCircle, Wallet, User as UserIcon } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
+import { hashPassword } from '@/utils/hash';
 
 interface UserData {
   id: string;
@@ -19,6 +20,15 @@ interface ServerData {
   last_name: string;
   password_hash: string;
 }
+
+// Il n'y a pas de lien direct en base entre un serveur et son compte étudiant (users),
+// donc on compare les noms (sans accents/casse) pour détecter un auto-renflouement.
+const normalizeName = (first: string, last: string) =>
+  `${first} ${last}`
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(new RegExp('[\\u0300-\\u036f]', 'g'), '')
+    .trim();
 
 export default function DepositPage() {
   const supabase = createClient();
@@ -50,6 +60,17 @@ export default function DepositPage() {
     if (sData) setServers(sData);
   };
 
+  const selectedServerObj = useMemo(
+    () => servers.find(s => s.id === selectedServer) || null,
+    [servers, selectedServer]
+  );
+
+  const isSelfDeposit = useMemo(() => {
+    if (!selectedUser || !selectedServerObj) return false;
+    return normalizeName(selectedServerObj.first_name, selectedServerObj.last_name) ===
+      normalizeName(selectedUser.first_name, selectedUser.last_name);
+  }, [selectedUser, selectedServerObj]);
+
   const filteredUsers = useMemo(() => {
     if (!search.trim()) return [];
     const query = search.toLowerCase();
@@ -71,25 +92,26 @@ export default function DepositPage() {
   const handleDeposit = async () => {
     const depositAmount = parseFloat(amount);
     if (!selectedUser || !selectedServer || !serverPassword || isNaN(depositAmount) || depositAmount <= 0) return;
-    
+
+    if (isSelfDeposit) {
+      alert("Un serveur ne peut pas renflouer son propre compte !");
+      return;
+    }
+
     setIsProcessing(true);
-    
+
     // Check password
     const server = servers.find(s => s.id === selectedServer);
     if (server) {
-      const encoder = new TextEncoder();
-      const data = encoder.encode(serverPassword);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashed = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      
+      const hashed = await hashPassword(serverPassword);
+
       if (hashed !== server.password_hash) {
         alert("Mot de passe incorrect pour ce serveur !");
         setIsProcessing(false);
         return;
       }
     }
-    
+
     // 1. Mettre à jour le solde de manière atomique (RPC)
     const { data: updatedBalance, error: userError } = await supabase.rpc('increment_balance', {
       p_user_id: selectedUser.id,
@@ -285,11 +307,16 @@ export default function DepositPage() {
                     className="w-1/2 bg-[#FCFAF5] border border-[#E8E4D9] rounded-xl px-4 py-3 text-stone-800 font-bold focus:outline-none focus:border-[#5A0A18] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
+                {isSelfDeposit && (
+                  <p className="mt-3 text-sm font-bold text-red-600">
+                    Un serveur ne peut pas renflouer son propre compte. Demandez à un autre serveur de valider l&apos;opération.
+                  </p>
+                )}
               </div>
 
-              <button 
+              <button
                 onClick={handleDeposit}
-                disabled={!amount || !selectedServer || !serverPassword || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0 || isProcessing}
+                disabled={!amount || !selectedServer || !serverPassword || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0 || isProcessing || isSelfDeposit}
                 className="w-full py-4 rounded-xl font-black text-lg text-white bg-[#5A0A18] hover:bg-[#7A1224] transition-colors shadow-lg shadow-[#5A0A18]/20 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
               >
                 <Wallet className="w-5 h-5" />
