@@ -5,8 +5,17 @@ export default function proxy(request: NextRequest) {
   const authCookie = request.cookies.get('comif_auth')?.value;
   const { pathname } = request.nextUrl;
 
-  // Si l'utilisateur essaie d'accéder à la page de login, on le laisse passer
-  if (pathname.startsWith('/login') || pathname.startsWith('/_next') || pathname.startsWith('/favicon.ico') || pathname.startsWith('/logo.png')) {
+  // Si l'utilisateur essaie d'accéder à la page de login, on le laisse passer.
+  // L'espace étudiant (/compte, /auth) a sa propre protection par email/lien
+  // magique (Supabase Auth), indépendante du mot de passe staff.
+  if (
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/favicon.ico') ||
+    pathname.startsWith('/logo.png') ||
+    pathname.startsWith('/compte') ||
+    pathname.startsWith('/auth')
+  ) {
     return NextResponse.next();
   }
 
@@ -26,6 +35,6 @@ export default function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|logo.png|login).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|logo.png|login|compte|auth).*)',
   ],
 };
