@@ -15,7 +15,7 @@ import {
   ClipboardList,
   CalendarDays
 } from 'lucide-react';
-import { logoutAction } from '../login/actions';
+import { exitAdminAction } from '../login/actions';
 
 const ADMIN_LINKS = [
   { href: '/admin', label: 'Tableau de bord', icon: LayoutDashboard, category: 'Général' },
@@ -36,7 +36,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Sidebar */}
       <aside className="w-80 bg-[#5A0A18] text-rose-100 flex flex-col shrink-0 min-h-screen shadow-xl z-20 relative">
         <div className="p-6 border-b border-rose-900/50 flex flex-col gap-6">
-          <form action={logoutAction} className="w-fit">
+          <form action={exitAdminAction} className="w-fit">
             <button type="submit" className="flex items-center gap-2 text-rose-300 hover:text-white transition-colors text-sm font-medium">
               <LogOut className="w-4 h-4" />
               Quitter l&apos;espace admin

@@ -24,8 +24,11 @@ export async function loginAction(formData: FormData) {
   return { error: 'Mot de passe incorrect' };
 }
 
-export async function logoutAction() {
+export async function exitAdminAction() {
+  // On repasse en session "bar" (accès accueil/caisse) au lieu de tout effacer:
+  // ça renvoie à l'accueil sans redemander de mot de passe, mais revenir sur
+  // /admin redemandera bien le mot de passe administrateur.
   const cookieStore = await cookies();
-  cookieStore.delete('comif_auth');
-  redirect('/login');
+  cookieStore.set('comif_auth', 'bar', { secure: true, httpOnly: true, path: '/', maxAge: 60 * 60 * 2 });
+  redirect('/');
 }
