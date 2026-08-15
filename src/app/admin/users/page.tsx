@@ -192,6 +192,7 @@ export default function AdminUsersPage() {
                               <option value="EI23">EI23</option>
                               <option value="EI24">EI24</option>
                               <option value="EI25">EI25</option>
+                              <option value="EI26">EI26</option>
                               <option value="ICM">ICM</option>
                               <option value="Enseignant">Enseignant</option>
                               <option value="Recherche">Recherche</option>
@@ -295,6 +296,7 @@ export default function AdminUsersPage() {
                 <option value="EI23">EI23</option>
                 <option value="EI24">EI24</option>
                 <option value="EI25">EI25</option>
+                <option value="EI26">EI26</option>
                 <option value="ICM">ICM</option>
                 <option value="Enseignant">Enseignant</option>
                 <option value="Recherche">Recherche</option>

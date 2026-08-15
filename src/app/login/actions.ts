@@ -23,3 +23,9 @@ export async function loginAction(formData: FormData) {
   
   return { error: 'Mot de passe incorrect' };
 }
+
+export async function logoutAction() {
+  const cookieStore = await cookies();
+  cookieStore.delete('comif_auth');
+  redirect('/login');
+}
