@@ -161,18 +161,27 @@ export default function HistoryPage() {
       );
     }
 
-    // 2. Fetch the most recent transactions for the default (no search) view
-    const { data: txData } = await supabase
-      .from('transactions')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(DEFAULT_HISTORY_LIMIT);
+    // 2. Fetch the most recent transactions for the default (no search) view.
+    // Achats et renflouements sont chargés séparément: sinon, comme les achats
+    // sont bien plus nombreux, ils remplissent tout le quota et il ne reste
+    // presque plus de renflouements dans le lot.
+    const [{ data: achatsData }, { data: renflouementsData }] = await Promise.all([
+      supabase
+        .from('transactions')
+        .select('*')
+        .eq('type', 'achat')
+        .order('created_at', { ascending: false })
+        .limit(DEFAULT_HISTORY_LIMIT),
+      supabase
+        .from('transactions')
+        .select('*')
+        .eq('type', 'renflouement')
+        .order('created_at', { ascending: false })
+        .limit(DEFAULT_HISTORY_LIMIT),
+    ]);
 
-    if (txData) {
-      const formattedTx = await formatTransactions(txData);
-      setTransactions(formattedTx.filter(t => t.type === 'achat'));
-      setDeposits(formattedTx.filter(t => t.type === 'renflouement'));
-    }
+    setTransactions(await formatTransactions(achatsData || []));
+    setDeposits(await formatTransactions(renflouementsData || []));
 
     setIsLoading(false);
   };
@@ -262,7 +271,7 @@ export default function HistoryPage() {
         </div>
 
         {/* Search */}
-        <div className="mb-2 relative max-w-md">
+        <div className="mb-6 relative max-w-md">
           <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
           <input
             type="text"
@@ -272,12 +281,6 @@ export default function HistoryPage() {
             className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#E8E4D9] rounded-xl text-stone-800 font-medium focus:outline-none focus:border-[#5A0A18] shadow-sm transition-colors"
           />
         </div>
-        {activeTab !== 'negative' && searchQuery.trim() && (
-          <p className="mb-6 text-xs font-medium text-stone-500">
-            {isDeepSearching ? 'Recherche dans tout l\'historique…' : 'Résultats sur tout l\'historique (pas seulement les dernières lignes).'}
-          </p>
-        )}
-        {(activeTab === 'negative' || !searchQuery.trim()) && <div className="mb-6" />}
 
         {/* Content */}
         <div className="bg-white rounded-2xl border border-[#E8E4D9] shadow-sm overflow-hidden flex flex-col max-h-[600px]">

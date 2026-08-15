@@ -40,8 +40,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             Retour à l'accueil
           </Link>
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shrink-0">
-              <span className="text-[#5A0A18] font-black text-[10px] tracking-tighter">COMIF</span>
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shrink-0 p-1">
+              <img src="/logo.png" alt="COMIF Logo" className="w-full h-full object-contain" />
             </div>
             <div>
               <h2 className="text-white font-bold tracking-tight">Espace Admin</h2>
