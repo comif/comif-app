@@ -27,11 +27,6 @@ export default function ServersManagementPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState<Partial<ServerData>>({});
 
-  // Password reset state
-  const [resettingId, setResettingId] = useState<number | null>(null);
-  const [resetPasswordValue, setResetPasswordValue] = useState('');
-  const [isResettingPassword, setIsResettingPassword] = useState(false);
-
   useEffect(() => {
     fetchServers();
   }, []);
@@ -76,39 +71,6 @@ export default function ServersManagementPage() {
 
   const cancelEdit = () => {
     setEditingId(null);
-  };
-
-  const startResetPassword = (server: ServerData) => {
-    setResettingId(server.id);
-    setResetPasswordValue('');
-  };
-
-  const cancelResetPassword = () => {
-    setResettingId(null);
-    setResetPasswordValue('');
-  };
-
-  const saveResetPassword = async () => {
-    if (!resettingId || !resetPasswordValue.trim()) return;
-
-    setIsResettingPassword(true);
-    const hashed = await hashPassword(resetPasswordValue.trim());
-
-    const { error } = await supabase
-      .from('servers')
-      .update({ password_hash: hashed })
-      .eq('id', resettingId);
-
-    setIsResettingPassword(false);
-
-    if (error) {
-      console.error("Erreur de réinitialisation du mot de passe:", error);
-      alert("Erreur lors de la réinitialisation du mot de passe.");
-      return;
-    }
-
-    setResettingId(null);
-    setResetPasswordValue('');
   };
 
   const filteredServers = useMemo(() => {
@@ -198,9 +160,8 @@ export default function ServersManagementPage() {
                 <tbody className="divide-y divide-[#F0EBE0] text-sm">
                   {filteredServers.map(server => {
                     const isEditing = editingId === server.id;
-                    const isResetting = resettingId === server.id;
                     return (
-                      <tr key={server.id} className={`transition-colors ${isEditing || isResetting ? 'bg-amber-50' : 'hover:bg-[#F4F1EB]'}`}>
+                      <tr key={server.id} className={`transition-colors ${isEditing ? 'bg-amber-50' : 'hover:bg-[#F4F1EB]'}`}>
                         {isEditing ? (
                           <>
                             <td className="py-2 px-6">
@@ -214,31 +175,6 @@ export default function ServersManagementPage() {
                               <button onClick={cancelEdit} className="px-3 py-1.5 rounded-lg font-bold text-stone-600 bg-stone-200 border border-stone-300 hover:bg-stone-300 transition-colors text-xs">Annul.</button>
                             </td>
                           </>
-                        ) : isResetting ? (
-                          <>
-                            <td className="py-4 px-6 font-black text-stone-800">{server.last_name}</td>
-                            <td className="py-4 px-6 font-medium text-stone-600">{server.first_name}</td>
-                            <td className="py-2 px-6 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <input
-                                  type="password"
-                                  autoFocus
-                                  value={resetPasswordValue}
-                                  onChange={e => setResetPasswordValue(e.target.value)}
-                                  placeholder="Nouveau mot de passe"
-                                  className="px-2 py-1.5 border border-amber-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
-                                />
-                                <button
-                                  onClick={saveResetPassword}
-                                  disabled={!resetPasswordValue.trim() || isResettingPassword}
-                                  className="px-3 py-1.5 rounded-lg font-bold text-emerald-700 bg-emerald-100 border border-emerald-200 hover:bg-emerald-200 transition-colors text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  OK
-                                </button>
-                                <button onClick={cancelResetPassword} className="px-3 py-1.5 rounded-lg font-bold text-stone-600 bg-stone-200 border border-stone-300 hover:bg-stone-300 transition-colors text-xs">Annul.</button>
-                              </div>
-                            </td>
-                          </>
                         ) : (
                           <>
                             <td className="py-4 px-6 font-black text-stone-800">{server.last_name}</td>
@@ -250,13 +186,6 @@ export default function ServersManagementPage() {
                               >
                                 <Pencil className="w-3.5 h-3.5" />
                                 Modifier
-                              </button>
-                              <button
-                                onClick={() => startResetPassword(server)}
-                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-stone-600 bg-stone-100 border border-stone-200 hover:bg-stone-200 hover:text-stone-800 transition-colors"
-                              >
-                                <KeyRound className="w-3.5 h-3.5" />
-                                Mot de passe
                               </button>
                               <button
                                 onClick={() => handleDelete(server.id)}
