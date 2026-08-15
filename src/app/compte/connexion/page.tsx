@@ -1,10 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Mail, ArrowRight } from 'lucide-react';
-import { requestMagicLink } from '../actions';
+import Link from 'next/link';
+import { Mail, ArrowRight, KeyRound } from 'lucide-react';
+import { requestMagicLink, signInWithPasswordAction } from '../actions';
+
+type Mode = 'lien' | 'motdepasse';
 
 export default function ComptConnexionPage() {
+  const [mode, setMode] = useState<Mode>('motdepasse');
   const [error, setError] = useState('');
   const [isPending, setIsPending] = useState(false);
 
@@ -14,7 +18,8 @@ export default function ComptConnexionPage() {
     setError('');
 
     const formData = new FormData(e.currentTarget);
-    const result = await requestMagicLink(formData);
+    const action = mode === 'motdepasse' ? signInWithPasswordAction : requestMagicLink;
+    const result = await action(formData);
 
     if (result?.error) {
       setError(result.error);
@@ -34,8 +39,28 @@ export default function ComptConnexionPage() {
         </div>
 
         <h1 className="text-xl font-black text-center text-stone-800 mb-2">Mon compte</h1>
-        <p className="text-center text-stone-500 font-medium mb-8 text-sm">
-          Entrez l&apos;email associé à votre compte, on vous envoie un lien de connexion.
+
+        <div className="flex gap-2 mb-6 bg-[#FCFAF5] p-1 rounded-xl border border-[#E8E4D9]">
+          <button
+            type="button"
+            onClick={() => { setMode('motdepasse'); setError(''); }}
+            className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${mode === 'motdepasse' ? 'bg-white text-[#5A0A18] shadow-sm' : 'text-stone-500'}`}
+          >
+            Mot de passe
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode('lien'); setError(''); }}
+            className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${mode === 'lien' ? 'bg-white text-[#5A0A18] shadow-sm' : 'text-stone-500'}`}
+          >
+            Lien par email
+          </button>
+        </div>
+
+        <p className="text-center text-stone-500 font-medium mb-6 text-sm">
+          {mode === 'motdepasse'
+            ? 'Connectez-vous avec votre email et votre mot de passe.'
+            : "Entrez l'email associé à votre compte, on vous envoie un lien de connexion."}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -53,6 +78,22 @@ export default function ComptConnexionPage() {
             </div>
           </div>
 
+          {mode === 'motdepasse' && (
+            <div>
+              <label className="block text-sm font-bold text-stone-700 mb-2">Mot de passe</label>
+              <div className="relative">
+                <KeyRound className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
+                <input
+                  type="password"
+                  name="password"
+                  required
+                  placeholder="••••••••"
+                  className="w-full bg-[#FCFAF5] border-2 border-[#E8E4D9] rounded-xl pl-12 pr-4 py-4 text-stone-800 font-medium focus:outline-none focus:border-[#5A0A18] transition-colors"
+                />
+              </div>
+            </div>
+          )}
+
           {error && (
             <p className="text-red-500 text-sm font-bold text-center">{error}</p>
           )}
@@ -62,10 +103,19 @@ export default function ComptConnexionPage() {
             disabled={isPending}
             className="w-full py-4 rounded-xl font-black text-white bg-[#5A0A18] hover:bg-[#7A1224] transition-colors shadow-lg shadow-[#5A0A18]/20 flex justify-center items-center gap-2 disabled:opacity-50"
           >
-            {isPending ? 'Envoi...' : 'Recevoir le lien'}
+            {isPending ? '...' : mode === 'motdepasse' ? 'Se connecter' : 'Recevoir le lien'}
             <ArrowRight className="w-5 h-5" />
           </button>
         </form>
+
+        {mode === 'motdepasse' && (
+          <p className="text-center text-sm text-stone-500 font-medium mt-6">
+            Pas encore de compte ?{' '}
+            <Link href="/compte/inscription" className="text-[#5A0A18] font-bold hover:underline">
+              Créer un compte
+            </Link>
+          </p>
+        )}
       </div>
     </div>
   );

@@ -43,6 +43,67 @@ export async function requestMagicLink(formData: FormData) {
   redirect('/compte/verifiez');
 }
 
+export async function signUpAction(formData: FormData) {
+  const email = (formData.get('email') as string || '').trim().toLowerCase();
+  const password = (formData.get('password') as string || '');
+
+  if (!email || !password) {
+    return { error: 'Merci de remplir tous les champs.' };
+  }
+
+  if (password.length < 6) {
+    return { error: 'Le mot de passe doit faire au moins 6 caractères.' };
+  }
+
+  const supabase = await createClient();
+
+  const { data: matchedUser } = await supabase
+    .from('users')
+    .select('id')
+    .ilike('email', email)
+    .maybeSingle();
+
+  if (!matchedUser) {
+    return { error: "Cet email ne correspond à aucun compte cotisant. Contactez la commission foyer." };
+  }
+
+  const origin = (await headers()).get('origin');
+
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: `${origin}/auth/callback`,
+    },
+  });
+
+  if (error) {
+    console.error('Erreur inscription:', error);
+    return { error: `Erreur: ${error.message}` };
+  }
+
+  redirect('/compte/verifiez');
+}
+
+export async function signInWithPasswordAction(formData: FormData) {
+  const email = (formData.get('email') as string || '').trim().toLowerCase();
+  const password = (formData.get('password') as string || '');
+
+  if (!email || !password) {
+    return { error: 'Merci de remplir tous les champs.' };
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    return { error: 'Email ou mot de passe incorrect.' };
+  }
+
+  redirect('/compte');
+}
+
 export async function signOutAction() {
   const supabase = await createClient();
   await supabase.auth.signOut();
