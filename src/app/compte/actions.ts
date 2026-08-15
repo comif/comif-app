@@ -35,7 +35,8 @@ export async function requestMagicLink(formData: FormData) {
 
     if (error) {
       console.error('Erreur envoi du lien magique:', error);
-      return { error: "Erreur lors de l'envoi de l'email. Réessayez plus tard." };
+      // Détail exposé temporairement pour diagnostiquer la config Supabase.
+      return { error: `Erreur: ${error.message}` };
     }
   }
 
