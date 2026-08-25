@@ -153,7 +153,8 @@ export async function createPendingOrder(itemsInput: { product_id: number; qty: 
 
   if (error || !order) {
     console.error('Erreur création commande:', error);
-    return { error: 'Erreur lors de la création de la commande.' };
+    // Détail exposé temporairement pour diagnostiquer.
+    return { error: `Erreur: ${error?.message || 'inconnue'}` };
   }
 
   return { id: order.id as string };
