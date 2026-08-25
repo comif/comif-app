@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
-import { ChevronLeft, Minus, Plus, ShoppingBag, RotateCcw } from 'lucide-react';
+import { ChevronLeft, Minus, Plus, Search, ShoppingBag, RotateCcw } from 'lucide-react';
 import { createPendingOrder } from '../actions';
 
 interface Product {
@@ -21,6 +21,7 @@ interface CartItem {
 
 export default function CommanderClient({ categories, products }: { categories: string[]; products: Product[] }) {
   const [activeCategory, setActiveCategory] = useState('Tous');
+  const [search, setSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState('');
@@ -29,10 +30,21 @@ export default function CommanderClient({ categories, products }: { categories: 
   const allCategories = useMemo(() => ['⭐ Favoris', 'Tous', ...categories], [categories]);
 
   const filteredProducts = useMemo(() => {
-    if (activeCategory === 'Tous') return products;
-    if (activeCategory === '⭐ Favoris') return products.filter(p => p.is_favorite);
-    return products.filter(p => p.category_name === activeCategory);
-  }, [products, activeCategory]);
+    let list = products;
+
+    if (activeCategory === '⭐ Favoris') {
+      list = list.filter(p => p.is_favorite);
+    } else if (activeCategory !== 'Tous') {
+      list = list.filter(p => p.category_name === activeCategory);
+    }
+
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(p => p.name.toLowerCase().includes(q));
+    }
+
+    return list;
+  }, [products, activeCategory, search]);
 
   const cartTotal = useMemo(
     () => cart.reduce((total, item) => total + item.product.price * item.quantity, 0),
@@ -112,57 +124,63 @@ export default function CommanderClient({ categories, products }: { categories: 
         <h1 className="text-lg font-black">Commander</h1>
       </header>
 
-      <div className="px-4 pt-4 flex gap-2 overflow-x-auto pb-2 hide-scrollbar-arrows">
+      <div className="px-4 pt-4">
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Rechercher un produit..."
+            className="w-full pl-9 pr-4 py-2.5 bg-white border border-[#E8E4D9] rounded-xl text-stone-800 text-sm font-medium focus:outline-none focus:border-[#5A0A18]"
+          />
+        </div>
+      </div>
+
+      <div className="px-4 pt-3 flex gap-2 overflow-x-auto pb-2 hide-scrollbar-arrows">
         {allCategories.map(cat => (
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}
-            className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all shrink-0 ${activeCategory === cat ? 'bg-[#5A0A18] text-white' : 'bg-white text-stone-500 border border-[#E8E4D9]'}`}
+            className={`px-4 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap transition-all shrink-0 ${activeCategory === cat ? 'bg-[#5A0A18] text-white' : 'bg-white text-stone-500 border border-[#E8E4D9]'}`}
           >
             {cat}
           </button>
         ))}
       </div>
 
-      <div className="px-4 pt-3 grid grid-cols-2 gap-3">
-        {filteredProducts.map(product => {
-          const inCart = cart.find(item => item.product.id === product.id);
-          return (
-            <button
-              key={product.id}
-              onClick={() => addToCart(product)}
-              className={`bg-white p-4 rounded-2xl border-2 text-left flex flex-col justify-between h-28 active:scale-95 transition-all ${inCart ? 'border-[#5A0A18]' : 'border-transparent shadow-sm'}`}
-            >
-              <div className="font-bold text-stone-800 text-sm leading-tight line-clamp-2">{product.name}</div>
-              <div className="flex items-center justify-between">
-                <span className="text-[#5A0A18] font-black">{product.price.toFixed(2)} €</span>
-                {inCart && <span className="bg-[#5A0A18] text-white text-xs font-black rounded-full w-6 h-6 flex items-center justify-center">{inCart.quantity}</span>}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {cart.length > 0 && (
-        <div className="px-4 pt-6">
-          <h2 className="text-xs font-black text-stone-400 uppercase tracking-widest mb-2">Mon panier</h2>
-          <div className="bg-white rounded-2xl border border-[#E8E4D9] divide-y divide-[#F0EBE0] overflow-hidden">
-            {cart.map(item => (
-              <div key={item.product.id} className="p-3 flex items-center justify-between gap-3">
+      <div className="px-4 pt-3">
+        <div className="bg-white rounded-2xl border border-[#E8E4D9] divide-y divide-[#F0EBE0] overflow-hidden">
+          {filteredProducts.map(product => {
+            const inCart = cart.find(item => item.product.id === product.id);
+            return (
+              <div key={product.id} className="p-3 flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-semibold text-sm text-stone-800 truncate">{item.product.name}</p>
-                  <p className="text-xs text-stone-500 font-medium">{(item.product.price * item.quantity).toFixed(2)} €</p>
+                  <p className="font-semibold text-sm text-stone-800 truncate">{product.name}</p>
+                  <p className="text-xs text-stone-500 font-bold">{product.price.toFixed(2)} €</p>
                 </div>
-                <div className="flex items-center gap-3 bg-stone-50 border border-[#E8E4D9] rounded-lg p-1 shrink-0">
-                  <button onClick={() => updateQuantity(item.product.id, -1)} className="p-1 hover:bg-white rounded text-stone-500"><Minus className="w-3.5 h-3.5" /></button>
-                  <span className="font-black text-sm w-4 text-center">{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.product.id, 1)} className="p-1 hover:bg-white rounded text-stone-500"><Plus className="w-3.5 h-3.5" /></button>
-                </div>
+                {inCart ? (
+                  <div className="flex items-center gap-3 bg-stone-50 border border-[#E8E4D9] rounded-lg p-1 shrink-0">
+                    <button onClick={() => updateQuantity(product.id, -1)} className="p-1 hover:bg-white rounded text-stone-500"><Minus className="w-3.5 h-3.5" /></button>
+                    <span className="font-black text-sm w-4 text-center">{inCart.quantity}</span>
+                    <button onClick={() => updateQuantity(product.id, 1)} className="p-1 hover:bg-white rounded text-stone-500"><Plus className="w-3.5 h-3.5" /></button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => addToCart(product)}
+                    className="shrink-0 w-8 h-8 rounded-lg bg-[#5A0A18]/10 text-[#5A0A18] flex items-center justify-center hover:bg-[#5A0A18] hover:text-white transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                )}
               </div>
-            ))}
-          </div>
+            );
+          })}
+          {filteredProducts.length === 0 && (
+            <p className="p-6 text-center text-stone-400 font-medium text-sm">Aucun produit trouvé.</p>
+          )}
         </div>
-      )}
+      </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#E8E4D9] p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
         {error && <p className="text-red-500 text-sm font-bold text-center mb-2">{error}</p>}
