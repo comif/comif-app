@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/server';
-import { LogOut, ShoppingBag } from 'lucide-react';
+import { LogOut, ShoppingBag, ScanLine } from 'lucide-react';
 import { signOutAction } from './actions';
-import { getAuthenticatedCotisant } from './session';
+import { getAuthenticatedCotisant, getLinkedServer } from './session';
 
 interface TransactionRow {
   id: number;
@@ -31,6 +31,8 @@ export default async function ComptePage() {
   if (!cotisant) {
     redirect('/compte/connexion');
   }
+
+  const linkedServer = await getLinkedServer(cotisant.email);
 
   const supabase = await createClient();
 
@@ -79,6 +81,16 @@ export default async function ComptePage() {
           <ShoppingBag className="w-5 h-5" />
           Passer une commande
         </Link>
+
+        {linkedServer && (
+          <Link
+            href="/compte/servir"
+            className="w-full py-4 rounded-xl font-black text-[#5A0A18] bg-white border-2 border-[#5A0A18] hover:bg-[#5A0A18]/5 transition-colors flex justify-center items-center gap-2"
+          >
+            <ScanLine className="w-5 h-5" />
+            Servir des commandes
+          </Link>
+        )}
 
         <div>
           <h2 className="text-sm font-black text-stone-800 uppercase tracking-wider mb-3 px-1">Historique récent</h2>

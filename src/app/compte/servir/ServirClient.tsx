@@ -4,20 +4,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import QrScanner from 'qr-scanner';
 import { createClient } from '@/utils/supabase/client';
-import { hashPassword } from '@/utils/hash';
-import { ChevronLeft, AlertTriangle, CheckCircle2, XCircle, KeyRound } from 'lucide-react';
+import { ChevronLeft, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 
 QrScanner.WORKER_PATH = '/qr-scanner-worker.min.js';
 
 const MAX_NEGATIVE_BALANCE = -20;
 const ORDER_EXPIRY_MINUTES = 30;
-
-interface ServerData {
-  id: string;
-  first_name: string;
-  last_name: string;
-  password_hash: string;
-}
 
 interface OrderItem {
   product_id: number;
@@ -41,14 +33,8 @@ interface ClientData {
   membership_end: string | null;
 }
 
-export default function ServirClient() {
+export default function ServirClient({ serverId, serverName }: { serverId: string; serverName: string }) {
   const supabase = createClient();
-
-  const [servers, setServers] = useState<ServerData[]>([]);
-  const [selectedServerId, setSelectedServerId] = useState('');
-  const [password, setPassword] = useState('');
-  const [authError, setAuthError] = useState('');
-  const [authenticatedServer, setAuthenticatedServer] = useState<ServerData | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const scannerRef = useRef<QrScanner | null>(null);
@@ -60,31 +46,7 @@ export default function ServirClient() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [resultMessage, setResultMessage] = useState('');
 
-  useEffect(() => {
-    supabase.from('servers').select('*').order('first_name').then(({ data }) => {
-      if (data) setServers(data);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const isScanning = !!authenticatedServer && !order && !resultMessage;
-
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError('');
-
-    const server = servers.find(s => s.id === selectedServerId);
-    if (!server) return;
-
-    const hashed = await hashPassword(password);
-    if (hashed !== server.password_hash) {
-      setAuthError('Mot de passe incorrect.');
-      return;
-    }
-
-    setAuthenticatedServer(server);
-    setPassword('');
-  };
+  const isScanning = !order && !resultMessage;
 
   const handleScan = async (data: string) => {
     scannerRef.current?.stop();
@@ -160,7 +122,7 @@ export default function ServirClient() {
   };
 
   const handleAccept = async () => {
-    if (!order || !client || !authenticatedServer) return;
+    if (!order || !client) return;
     setIsProcessing(true);
 
     const { error: balanceError } = await supabase.rpc('increment_balance', {
@@ -178,7 +140,7 @@ export default function ServirClient() {
 
     await supabase.from('transactions').insert({
       client_id: client.id,
-      server_id: authenticatedServer.id,
+      server_id: serverId,
       amount: -cartTotal,
       type: 'achat',
       details: detailsStr,
@@ -198,57 +160,7 @@ export default function ServirClient() {
     setScanError('');
   };
 
-  // --- Écran 1: identification du serveur ---
-  if (!authenticatedServer) {
-    return (
-      <div className="min-h-screen bg-[#F4F1EB] font-sans flex items-center justify-center p-6">
-        <div className="max-w-sm w-full bg-white rounded-3xl border border-[#E8E4D9] shadow-xl p-8 relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-2 bg-[#5A0A18]" />
-
-          <h1 className="text-xl font-black text-center text-stone-800 mb-2">Servir une commande</h1>
-          <p className="text-center text-stone-500 font-medium mb-8 text-sm">Identifiez-vous pour scanner des commandes.</p>
-
-          <form onSubmit={handleAuth} className="space-y-4">
-            <select
-              value={selectedServerId}
-              onChange={e => setSelectedServerId(e.target.value)}
-              required
-              className="w-full bg-[#FCFAF5] border-2 border-[#E8E4D9] rounded-xl px-4 py-3.5 text-stone-800 font-bold focus:outline-none focus:border-[#5A0A18]"
-            >
-              <option value="" disabled>-- Votre nom --</option>
-              {servers.map(s => (
-                <option key={s.id} value={s.id}>{s.first_name} {s.last_name}</option>
-              ))}
-            </select>
-
-            <div className="relative">
-              <KeyRound className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
-              <input
-                type="password"
-                placeholder="Mot de passe"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                className="w-full pl-12 pr-4 py-3.5 bg-[#FCFAF5] border-2 border-[#E8E4D9] rounded-xl text-stone-800 font-bold focus:outline-none focus:border-[#5A0A18]"
-              />
-            </div>
-
-            {authError && <p className="text-red-500 text-sm font-bold text-center">{authError}</p>}
-
-            <button
-              type="submit"
-              disabled={!selectedServerId || !password}
-              className="w-full py-4 rounded-xl font-black text-white bg-[#5A0A18] hover:bg-[#7A1224] transition-colors shadow-lg shadow-[#5A0A18]/20 disabled:opacity-50"
-            >
-              Continuer
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  // --- Écran 2: résultat (acceptée / refusée) ---
+  // --- Écran : résultat (acceptée / refusée) ---
   if (resultMessage) {
     const accepted = resultMessage === 'accepted';
     return (
@@ -275,7 +187,7 @@ export default function ServirClient() {
     );
   }
 
-  // --- Écran 3: récapitulatif de la commande scannée ---
+  // --- Écran : récapitulatif de la commande scannée ---
   if (order && client) {
     const cotisant = isCotisant(client);
     const balanceTooLow = client.balance < MAX_NEGATIVE_BALANCE;
@@ -339,16 +251,16 @@ export default function ServirClient() {
     );
   }
 
-  // --- Écran 4: scan caméra ---
+  // --- Écran : scan caméra ---
   return (
     <div className="min-h-screen bg-black flex flex-col">
       <header className="px-4 py-4 flex items-center gap-3 text-white">
-        <Link href="/" className="p-1 -ml-1">
+        <Link href="/compte" className="p-1 -ml-1">
           <ChevronLeft className="w-6 h-6" />
         </Link>
         <div>
           <h1 className="font-black">Scanner une commande</h1>
-          <p className="text-xs text-white/60 font-medium">{authenticatedServer.first_name} {authenticatedServer.last_name}</p>
+          <p className="text-xs text-white/60 font-medium">{serverName}</p>
         </div>
       </header>
 

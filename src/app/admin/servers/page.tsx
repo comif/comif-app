@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, UserPlus, Pencil, Trash2, KeyRound } from 'lucide-react';
+import { Search, UserPlus, Pencil, Trash2, KeyRound, Mail } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { hashPassword } from '@/utils/hash';
 
@@ -10,6 +10,7 @@ interface ServerData {
   last_name: string;
   first_name: string;
   password_hash?: string;
+  email?: string | null;
 }
 
 export default function ServersManagementPage() {
@@ -22,6 +23,7 @@ export default function ServersManagementPage() {
   const [newLastName, setNewLastName] = useState('');
   const [newFirstName, setNewFirstName] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [newEmail, setNewEmail] = useState('');
 
   // Editing state
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -57,9 +59,10 @@ export default function ServersManagementPage() {
 
     const { error } = await supabase
       .from('servers')
-      .update({ 
-        last_name: editFormData.last_name?.toUpperCase(), 
-        first_name: editFormData.first_name 
+      .update({
+        last_name: editFormData.last_name?.toUpperCase(),
+        first_name: editFormData.first_name,
+        email: editFormData.email?.trim().toLowerCase() || null,
       })
       .eq('id', editingId);
 
@@ -89,19 +92,21 @@ export default function ServersManagementPage() {
       .insert([{
         last_name: newLastName.trim().toUpperCase(),
         first_name: newFirstName.trim(),
-        password_hash: await hashPassword(newPassword.trim())
+        password_hash: await hashPassword(newPassword.trim()),
+        email: newEmail.trim().toLowerCase() || null,
       }])
       .select();
-      
+
     if (data && data.length > 0) {
       setServers([...servers, data[0]]);
     }
     if (error) console.error("Erreur d'ajout:", error);
-    
+
     // Reset form
     setNewLastName('');
     setNewFirstName('');
     setNewPassword('');
+    setNewEmail('');
   };
 
   const handleDelete = async (id: number) => {
@@ -154,6 +159,7 @@ export default function ServersManagementPage() {
                   <tr className="text-xs font-bold text-stone-500 uppercase tracking-wider">
                     <th className="py-4 px-6 bg-[#FCFAF5]">Nom</th>
                     <th className="py-4 px-6 bg-[#FCFAF5]">Prénom</th>
+                    <th className="py-4 px-6 bg-[#FCFAF5]">Email (accès à /compte/servir)</th>
                     <th className="py-4 px-6 bg-[#FCFAF5] text-right">Actions</th>
                   </tr>
                 </thead>
@@ -170,6 +176,9 @@ export default function ServersManagementPage() {
                             <td className="py-2 px-6">
                               <input type="text" value={editFormData.first_name || ''} onChange={e => setEditFormData({...editFormData, first_name: e.target.value})} className="w-full px-2 py-1.5 border border-amber-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" />
                             </td>
+                            <td className="py-2 px-6">
+                              <input type="email" value={editFormData.email || ''} onChange={e => setEditFormData({...editFormData, email: e.target.value})} placeholder="email@cotisant.fr" className="w-full px-2 py-1.5 border border-amber-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                            </td>
                             <td className="py-2 px-6 text-right flex items-center justify-end gap-2">
                               <button onClick={saveEdit} className="px-3 py-1.5 rounded-lg font-bold text-emerald-700 bg-emerald-100 border border-emerald-200 hover:bg-emerald-200 transition-colors text-xs">OK</button>
                               <button onClick={cancelEdit} className="px-3 py-1.5 rounded-lg font-bold text-stone-600 bg-stone-200 border border-stone-300 hover:bg-stone-300 transition-colors text-xs">Annul.</button>
@@ -179,6 +188,7 @@ export default function ServersManagementPage() {
                           <>
                             <td className="py-4 px-6 font-black text-stone-800">{server.last_name}</td>
                             <td className="py-4 px-6 font-medium text-stone-600">{server.first_name}</td>
+                            <td className="py-4 px-6 font-medium text-stone-500">{server.email || <span className="text-stone-300 italic">Non renseigné</span>}</td>
                             <td className="py-4 px-6 text-right flex items-center justify-end gap-2">
                               <button
                                 onClick={() => startEdit(server)}
@@ -202,7 +212,7 @@ export default function ServersManagementPage() {
                   })}
                   {filteredServers.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="py-12 text-center text-stone-400 font-medium bg-white">Aucun serveur trouvé.</td>
+                      <td colSpan={4} className="py-12 text-center text-stone-400 font-medium bg-white">Aucun serveur trouvé.</td>
                     </tr>
                   )}
                 </tbody>
@@ -243,6 +253,21 @@ export default function ServersManagementPage() {
                   className="w-full px-4 py-2.5 bg-[#FCFAF5] border border-[#E8E4D9] rounded-xl text-stone-800 font-medium focus:outline-none focus:border-[#5A0A18]"
                   required
                 />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider pl-1">Email (compte cotisant, optionnel)</label>
+                <div className="relative">
+                  <Mail className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                  <input
+                    type="email"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    placeholder="email@cotisant.fr"
+                    className="w-full pl-10 pr-4 py-2.5 bg-[#FCFAF5] border border-[#E8E4D9] rounded-xl text-stone-800 font-medium focus:outline-none focus:border-[#5A0A18]"
+                  />
+                </div>
+                <p className="text-xs text-stone-400 pl-1">Doit correspondre à l&apos;email du compte cotisant pour donner accès à /compte/servir.</p>
               </div>
 
               <div className="flex flex-col gap-1.5">

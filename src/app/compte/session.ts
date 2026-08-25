@@ -12,5 +12,22 @@ export async function getAuthenticatedCotisant() {
     .ilike('email', user.email)
     .maybeSingle();
 
-  return cotisant;
+  if (!cotisant) return null;
+
+  return { ...cotisant, email: user.email };
+}
+
+// Un serveur est un cotisant dont l'email a été relié à une fiche serveur
+// depuis /admin/servers. Ça donne accès à /compte/servir sans mot de passe
+// séparé, l'identité étant déjà prouvée par la session /compte.
+export async function getLinkedServer(email: string) {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from('servers')
+    .select('id, first_name, last_name')
+    .ilike('email', email)
+    .maybeSingle();
+
+  return data;
 }
