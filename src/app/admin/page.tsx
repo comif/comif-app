@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Users, TrendingUp, CheckCircle2, Circle, Clock, ListTodo, Plus, Trash2 } from 'lucide-react';
+import { Users, TrendingUp, TrendingDown, PiggyBank,CheckCircle2, Circle, Clock, ListTodo, Plus, Trash2 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 type TaskStatus = 'Pas commencé' | 'En cours' | 'Fini';
@@ -32,6 +32,8 @@ export default function AdminDashboard() {
   // KPIs state
   const [todayRevenue, setTodayRevenue] = useState(0);
   const [activeMembers, setActiveMembers] = useState(0);
+  const [positiveBalances, setPositiveBalances] = useState(0);
+  const [negativeBalances, setNegativeBalances] = useState(0);
 
   useEffect(() => {
     fetchKPIs();
@@ -46,6 +48,28 @@ export default function AdminDashboard() {
       .gte('membership_end', todayStr);
     
     if (count !== null) setActiveMembers(count);
+
+    // Somme des soldes positifs / négatifs des adhérents encore actifs
+    // (lecture par pages de 1000, limite par défaut de Supabase)
+    let positive = 0;
+    let negative = 0;
+    for (let from = 0; ; from += 1000) {
+      const { data: balances } = await supabase
+        .from('users')
+        .select('balance')
+        .gte('membership_end', todayStr)
+        .order('id')
+        .range(from, from + 999);
+
+      if (!balances) break;
+      for (const { balance } of balances) {
+        if (balance > 0) positive += balance;
+        else if (balance < 0) negative += balance;
+      }
+      if (balances.length < 1000) break;
+    }
+    setPositiveBalances(positive);
+    setNegativeBalances(negative);
 
     // Recettes du jour (achats d'aujourd'hui)
     const today = new Date();
@@ -144,6 +168,26 @@ export default function AdminDashboard() {
           <div>
             <p className="text-sm font-bold text-stone-500 uppercase tracking-wider mb-1">Membres Actifs</p>
             <p className="text-3xl font-black text-stone-800">{activeMembers}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-6 border border-[#E8E4D9] shadow-sm flex items-center gap-5">
+          <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
+            <PiggyBank className="w-7 h-7" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-stone-500 uppercase tracking-wider mb-1">Soldes positifs</p>
+            <p className="text-3xl font-black text-stone-800">{positiveBalances.toFixed(2)} €</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-6 border border-[#E8E4D9] shadow-sm flex items-center gap-5">
+          <div className="w-14 h-14 rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0 border border-red-100">
+            <TrendingDown className="w-7 h-7" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-stone-500 uppercase tracking-wider mb-1">Soldes négatifs</p>
+            <p className="text-3xl font-black text-red-600">{negativeBalances.toFixed(2)} €</p>
           </div>
         </div>
 
